@@ -102,18 +102,27 @@ Note: Laptop shares KVM ethernet w/ GPU PC. KVM switch determines which machine 
 
 ### ✅ Completed
 - [x] Explorer subagent created (`~/.config/opencode/agents/explorer.md`)
-  - Uses `ollama/qwen3:8b` for fast codebase exploration
+  - Uses `ollama/qwen3:8b` for project exploration
   - Read-only permissions (glob, grep, read)
-  - Invocation: `@explorer find all API endpoints`
+  - Invocation: `@explorer explore ~/Projects/SomeDir`
+  - Performance: ~20-30 sec per query (Qwen3 has built-in thinking mode)
+  - Max 10 files read, 300 word summary
 - [x] Reviewer subagent created (`~/.config/opencode/agents/reviewer.md`)
   - Uses `ollama/qwen3:8b` for code review
   - Read-only permissions, focused on quality/security
   - Invocation: `@reviewer check auth.py for issues`
 
-### Key Decision
-- **Don't use Qwen as main model** — it hallucinates in complex agentic workflows (loops, generates fake user inputs)
-- **Use Qwen only for subagents** — focused tasks work perfectly with local model
+### Key Decisions
+- **Don't use Qwen as main model** — hallucinates in complex workflows (loops, fake user inputs)
+- **Use Qwen only for subagents** — focused tasks work with local model
 - Keep Claude as primary for conversations/complex tasks
+- **Explorer usage**: Only when Claude at token limit or simple queries. Claude faster/better for complex exploration.
+
+### Performance Notes
+- Network latency: 0.23ms avg (excellent)
+- Qwen3:8b inference: 20-30 sec (has internal thinking, can't disable)
+- RTX 2060 6GB limits to 8B param models
+- Upgrade to RTX 3060 12GB will enable faster/larger models
 
 ## Phase 5: Verification & Reboot Test
 
