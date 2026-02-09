@@ -1,8 +1,8 @@
 # Local AI Inference Server + Multi-Model OpenCode Setup
 
 ## Current Status
-- **Phase 1**: NEARLY COMPLETE — fixing static IP assignment to correct interface
-- **Phase 2**: IN PROGRESS — switch connected, laptop IP set, GPU PC IP needs fix
+- **Phase 1**: ✅ COMPLETE — All systems operational on GPU PC
+- **Phase 2**: MOSTLY COMPLETE — GPU PC & laptop connected, verified. Orange Pi remains
 - **Phase 3**: NOT STARTED — OpenCode installation
 - **Phase 4**: NOT STARTED — Agent configuration
 - **Phase 5**: NOT STARTED — Verification
@@ -23,15 +23,17 @@ Private LAN: 10.0.0.0/24 (Ethernet, no internet)
 Internet:    WiFi on each machine independently
 
 GPU PC:    10.0.0.1 (Ethernet - enp34s0 = onboard NIC)
-Laptop:    10.0.0.2 (Ethernet - enp0s20f0u1u2u4 = USB adapter)
+Laptop:    10.0.0.2 (Ethernet - enp0s20f0u1u2u4 = KVM USB adapter)
 Orange Pi: 10.0.0.3 (Ethernet - TBD)
 
 Switch ports: 1=GPU PC, 2=Laptop, 3=Orange Pi (when ready)
+
+Note: Laptop shares KVM ethernet w/ GPU PC. KVM switch determines which machine sees it. LAN access only when KVM on laptop side.
 ```
 
 ## Phase 1: Fedora GPU PC Setup
 
-### Completed
+### ✅ All Complete
 - [x] Fedora Server 43 installed (minimal, no DE)
 - [x] System updated (`dnf update`)
 - [x] Essentials installed (curl, wget, htop, git)
@@ -40,34 +42,25 @@ Switch ports: 1=GPU PC, 2=Laptop, 3=Orange Pi (when ready)
 - [x] nvidia-smi working (RTX 2060)
 - [x] Ollama installed and enabled on boot
 - [x] Qwen3:8B model pulled
+- [x] Context window configured (num_ctx 16384, saved)
 - [x] Ollama exposed on 0.0.0.0:11434 (systemd override created)
+- [x] Static IP: 10.0.0.1/24 on enp34s0 (onboard NIC, gpu-lan connection)
 - [x] Firewall: 10.0.0.0/24 trusted, SSH allowed
 - [x] Boot target: multi-user.target
 - [x] gpuwatch alias added
 
-### In Progress
-- [ ] Static IP on correct interface — IP was assigned to USB adapter (`enp3s0f0u2u2u4`) instead of onboard NIC (`enp34s0`). Fix:
-  ```bash
-  sudo nmcli con add type ethernet con-name gpu-lan ifname enp34s0 ipv4.addresses 10.0.0.1/24 ipv4.method manual
-  sudo nmcli con up gpu-lan
-  ```
-
-### Done Manually
-- [x] Context window configured (num_ctx 16384, saved)
-
 ## Phase 2: Physical Networking
 
-### Completed
+### ✅ Completed
 - [x] GPU PC connected to switch port 1
-- [x] Laptop connected to switch port 2
+- [x] Laptop connected to switch port 2 (via KVM USB ethernet)
 - [x] Laptop static IP set: 10.0.0.2/24 on enp0s20f0u1u2u4
+- [x] Ping test successful (0.22ms avg)
+- [x] Ollama API accessible from laptop (`curl http://10.0.0.1:11434/api/tags` works)
 
 ### Remaining
-- [ ] Fix GPU PC static IP (see above)
-- [ ] Ping test between machines
-- [ ] `curl http://10.0.0.1:11434/api/tags` from laptop
-- [ ] Test inference over network
 - [ ] Orange Pi: connect to port 3, set 10.0.0.3/24
+- [ ] Full inference test over network
 
 ## Phase 3: OpenCode Installation
 
@@ -113,8 +106,8 @@ Switch ports: 1=GPU PC, 2=Laptop, 3=Orange Pi (when ready)
 - [ ] Cloud + local model switching works in OpenCode
 
 ## Known Issues
-- GPU PC has both onboard NIC (`enp34s0`) and USB ethernet (`enp3s0f0u2u2u4`). Scripts auto-detected the wrong one. Must use `enp34s0` for the switch.
-- Context window for qwen3:8b not yet configured (need to run ollama interactive session)
+- Laptop uses KVM's USB ethernet (enp0s20f0u1u2u4). Can't access LAN when KVM switched to GPU PC. Consider dedicated USB adapter for laptop if simultaneous access needed.
+- GPU PC has both onboard NIC (enp34s0) and USB ethernet (enp3s0f0u2u2u4). Only onboard NIC used for LAN.
 
 ## Troubleshooting Quick Reference
 
