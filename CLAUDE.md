@@ -1,8 +1,8 @@
 # Local AI Inference Server + Multi-Model OpenCode Setup
 
 ## Current Status
-- **Phase 1**: IN PROGRESS — Fedora Server installed on GPU PC, running dnf updates
-- **Phase 2**: NOT STARTED — Physical networking (switch connected, IPs not configured yet)
+- **Phase 1**: NEARLY COMPLETE — fixing static IP assignment to correct interface
+- **Phase 2**: IN PROGRESS — switch connected, laptop IP set, GPU PC IP needs fix
 - **Phase 3**: NOT STARTED — OpenCode installation
 - **Phase 4**: NOT STARTED — Agent configuration
 - **Phase 5**: NOT STARTED — Verification
@@ -14,7 +14,7 @@
 | Desktop PC | Headless LLM inference server | Fedora Server 43 (minimal, no DE) | Ryzen 5 3600, RTX 2060 6GB (upgrading to RTX 3060 12GB), 32GB DDR4, B450 |
 | Laptop | Primary dev machine | openSUSE Tumbleweed | Runs OpenCode/Claude Code, editor, project files |
 | Orange Pi | Secondary dev machine | Ubuntu Desktop (ARM) | Lighter work |
-| Network switch | Private LAN | — | Unmanaged gigabit Ethernet, already owned |
+| Network switch | Private LAN | — | Unmanaged gigabit Ethernet, 5-port (port 5 is uplink, don't use) |
 
 ## Network Topology
 
@@ -22,69 +22,52 @@
 Private LAN: 10.0.0.0/24 (Ethernet, no internet)
 Internet:    WiFi on each machine independently
 
-GPU PC:    10.0.0.1 (Ethernet)
-Laptop:    10.0.0.2 (Ethernet)
-Orange Pi: 10.0.0.3 (Ethernet)
+GPU PC:    10.0.0.1 (Ethernet - enp34s0 = onboard NIC)
+Laptop:    10.0.0.2 (Ethernet - enp0s20f0u1u2u4 = USB adapter)
+Orange Pi: 10.0.0.3 (Ethernet - TBD)
+
+Switch ports: 1=GPU PC, 2=Laptop, 3=Orange Pi (when ready)
 ```
 
 ## Phase 1: Fedora GPU PC Setup
 
 ### Completed
 - [x] Fedora Server 43 installed (minimal, no DE)
-- [x] dnf update running
+- [x] System updated (`dnf update`)
+- [x] Essentials installed (curl, wget, htop, git)
+- [x] SSH enabled and running
+- [x] NVIDIA drivers installed via RPM Fusion (akmod-nvidia)
+- [x] nvidia-smi working (RTX 2060)
+- [x] Ollama installed and enabled on boot
+- [x] Qwen3:8B model pulled
+- [x] Ollama exposed on 0.0.0.0:11434 (systemd override created)
+- [x] Firewall: 10.0.0.0/24 trusted, SSH allowed
+- [x] Boot target: multi-user.target
+- [x] gpuwatch alias added
 
-### Remaining
-- [ ] Install essentials: `curl wget htop git`
-- [ ] Enable SSH: `sudo systemctl enable --now sshd`
-- [ ] Install NVIDIA drivers via RPM Fusion:
+### In Progress
+- [ ] Static IP on correct interface — IP was assigned to USB adapter (`enp3s0f0u2u2u4`) instead of onboard NIC (`enp34s0`). Fix:
   ```bash
-  sudo dnf install -y \
-    https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
-    https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
-  sudo dnf install -y akmod-nvidia xorg-x11-drv-nvidia-cuda
-  sudo akmods --force && sudo dracut --force && sudo reboot
-  # Verify: nvidia-smi
+  sudo nmcli con add type ethernet con-name gpu-lan ifname enp34s0 ipv4.addresses 10.0.0.1/24 ipv4.method manual
+  sudo nmcli con up gpu-lan
   ```
-- [ ] Install Ollama:
-  ```bash
-  curl -fsSL https://ollama.ai/install.sh | sh
-  sudo systemctl enable ollama
-  ```
-- [ ] Pull models:
-  ```bash
-  ollama pull qwen3:8b
-  # RTX 3060 only: ollama pull qwen3-coder-next
-  ```
-- [ ] Configure context windows:
-  ```bash
-  ollama run qwen3:8b
-  >>> /set parameter num_ctx 16384   # RTX 2060 (6GB)
-  # or num_ctx 32768 for RTX 3060 (12GB)
-  >>> /save qwen3:8b
-  >>> /bye
-  ```
-- [ ] Expose Ollama to LAN:
-  ```bash
-  sudo systemctl edit ollama
-  # Add:
-  # [Service]
-  # Environment="OLLAMA_HOST=0.0.0.0"
-  sudo systemctl daemon-reload && sudo systemctl restart ollama
-  # Verify: ss -tlnp | grep 11434 shows 0.0.0.0
-  ```
-- [ ] Configure static IP 10.0.0.1/24 on Ethernet (no gateway, no DNS)
-- [ ] Firewall: allow 10.0.0.0/24 to port 11434, allow SSH
-- [ ] Set boot target: `sudo systemctl set-default multi-user.target`
-- [ ] GPU monitoring alias: `alias gpuwatch="watch -n 1 nvidia-smi"`
+
+### Not Done
+- [ ] Context window config (`/set parameter num_ctx 16384` then `/save qwen3:8b`) — script failed before this step
 
 ## Phase 2: Physical Networking
 
-- [ ] All machines cabled to switch
-- [ ] Laptop: static IP 10.0.0.2/24 on Ethernet (nmcli, no gateway)
-- [ ] Orange Pi: static IP 10.0.0.3/24 on Ethernet
-- [ ] Ping test: all machines reach each other on 10.0.0.x
-- [ ] `curl http://10.0.0.1:11434/api/tags` from laptop and Orange Pi
+### Completed
+- [x] GPU PC connected to switch port 1
+- [x] Laptop connected to switch port 2
+- [x] Laptop static IP set: 10.0.0.2/24 on enp0s20f0u1u2u4
+
+### Remaining
+- [ ] Fix GPU PC static IP (see above)
+- [ ] Ping test between machines
+- [ ] `curl http://10.0.0.1:11434/api/tags` from laptop
 - [ ] Test inference over network
+- [ ] Orange Pi: connect to port 3, set 10.0.0.3/24
 
 ## Phase 3: OpenCode Installation
 
@@ -129,6 +112,10 @@ Orange Pi: 10.0.0.3 (Ethernet)
 - [ ] Everything survives GPU PC reboot
 - [ ] Cloud + local model switching works in OpenCode
 
+## Known Issues
+- GPU PC has both onboard NIC (`enp34s0`) and USB ethernet (`enp3s0f0u2u2u4`). Scripts auto-detected the wrong one. Must use `enp34s0` for the switch.
+- Context window for qwen3:8b not yet configured (need to run ollama interactive session)
+
 ## Troubleshooting Quick Reference
 
 | Problem | Fix |
@@ -140,6 +127,7 @@ Orange Pi: 10.0.0.3 (Ethernet)
 | WiFi broken after static Ethernet | Remove gateway from Ethernet: `nmcli con mod "name" ipv4.gateway ""` |
 | firewalld blocking | `sudo firewall-cmd --zone=trusted --list-sources` should include 10.0.0.0/24 |
 | SELinux blocking | `sudo ausearch -m avc -ts recent`, `sudo setenforce 0` to test |
+| Static IP on wrong interface | Check `nmcli device status`, use `enp34s0` (onboard), not USB adapter |
 
 ## Key Decisions
 - Fedora Server 43 (minimal) for GPU PC
@@ -147,3 +135,10 @@ Orange Pi: 10.0.0.3 (Ethernet)
 - Ollama for local inference, Qwen3:8B as primary local model
 - Cloud APIs (Anthropic/OpenAI) for complex tasks via WiFi
 - OpenCode as the coding agent interface
+- WiFi stays on GPU PC for updates (upgrade-script.sh)
+
+## Scripts
+- `phase1-setup.sh` — pre-reboot: essentials, SSH, NVIDIA drivers
+- `phase1-post-reboot.sh` — full post-reboot setup (may fail at model pull)
+- `phase1-continue.sh` — picks up after model pull (context, ollama expose, IP, firewall)
+- `upgrade-script.sh` — monthly: dnf upgrade, nvidia rebuild, ollama update, git pull
