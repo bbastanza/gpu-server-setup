@@ -3,9 +3,9 @@
 ## Current Status
 - **Phase 1**: ✅ COMPLETE — All systems operational on GPU PC
 - **Phase 2**: MOSTLY COMPLETE — GPU PC & laptop connected, verified. Orange Pi remains
-- **Phase 3**: NOT STARTED — OpenCode installation
-- **Phase 4**: NOT STARTED — Agent configuration
-- **Phase 5**: NOT STARTED — Verification
+- **Phase 3**: ✅ COMPLETE — OpenCode configured with Ollama provider
+- **Phase 4**: ✅ COMPLETE — Explorer & reviewer subagents created
+- **Phase 5**: PARTIAL — Connectivity verified, full test pending
 
 ## Hardware
 
@@ -64,10 +64,16 @@ Note: Laptop shares KVM ethernet w/ GPU PC. KVM switch determines which machine 
 
 ## Phase 3: OpenCode Installation
 
-- [ ] Install OpenCode on laptop and Orange Pi
-- [ ] Create `~/.config/opencode/opencode.json` pointing to `http://10.0.0.1:11434/v1`
-- [ ] Add Anthropic/OpenAI API keys
-- [ ] Test local model + cloud model from OpenCode
+### ✅ Completed
+- [x] OpenCode already installed on laptop
+- [x] Ollama provider added to `~/.config/opencode/opencode.json`
+- [x] baseURL configured: `http://10.0.0.1:11434/v1`
+- [x] qwen3:8b model configured (16K context, 4K output)
+- [x] API connection verified
+
+### Remaining
+- [ ] Install/configure OpenCode on Orange Pi
+- [ ] Full inference test over network
 
 ### opencode.json template
 ```json
@@ -94,9 +100,20 @@ Note: Laptop shares KVM ethernet w/ GPU PC. KVM switch determines which machine 
 
 ## Phase 4: Agent Configuration
 
-- [ ] Create explorer subagent (local model, read-only codebase search)
-- [ ] Create reviewer subagent (local model, code review)
-- [ ] Verify agents route to remote Ollama
+### ✅ Completed
+- [x] Explorer subagent created (`~/.config/opencode/agents/explorer.md`)
+  - Uses `ollama/qwen3:8b` for fast codebase exploration
+  - Read-only permissions (glob, grep, read)
+  - Invocation: `@explorer find all API endpoints`
+- [x] Reviewer subagent created (`~/.config/opencode/agents/reviewer.md`)
+  - Uses `ollama/qwen3:8b` for code review
+  - Read-only permissions, focused on quality/security
+  - Invocation: `@reviewer check auth.py for issues`
+
+### Key Decision
+- **Don't use Qwen as main model** — it hallucinates in complex agentic workflows (loops, generates fake user inputs)
+- **Use Qwen only for subagents** — focused tasks work perfectly with local model
+- Keep Claude as primary for conversations/complex tasks
 
 ## Phase 5: Verification & Reboot Test
 
@@ -106,6 +123,7 @@ Note: Laptop shares KVM ethernet w/ GPU PC. KVM switch determines which machine 
 - [ ] Cloud + local model switching works in OpenCode
 
 ## Known Issues
+- **Qwen hallucination in main chat**: Qwen3:8B generates fake user inputs and loops when used as primary OpenCode model. Stop sequences didn't fix it. Solution: use only for subagents with scoped tasks.
 - Laptop uses KVM's USB ethernet (enp0s20f0u1u2u4). Can't access LAN when KVM switched to GPU PC. Consider dedicated USB adapter for laptop if simultaneous access needed.
 - GPU PC has both onboard NIC (enp34s0) and USB ethernet (enp3s0f0u2u2u4). Only onboard NIC used for LAN.
 
