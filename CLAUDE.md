@@ -52,8 +52,8 @@ Switch ports: 1=GPU PC, 2=Laptop, 3=Orange Pi (when ready)
   sudo nmcli con up gpu-lan
   ```
 
-### Not Done
-- [ ] Context window config (`/set parameter num_ctx 16384` then `/save qwen3:8b`) — script failed before this step
+### Done Manually
+- [x] Context window configured (num_ctx 16384, saved)
 
 ## Phase 2: Physical Networking
 
