@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Monthly update script for GPU PC.
-# Expects temporary internet access (USB tether, WiFi dongle, or router ethernet).
 # Usage: ./monthly-update.sh
 set -euo pipefail
 
@@ -13,9 +12,8 @@ info()  { echo -e "${GREEN}[✓]${NC} $1"; }
 warn()  { echo -e "${YELLOW}[!]${NC} $1"; }
 err()   { echo -e "${RED}[✗]${NC} $1"; }
 
-# Check internet
 if ! ping -c 1 -W 3 google.com &>/dev/null; then
-    err "No internet. Connect to a network first (USB tether, WiFi, or router ethernet)."
+    err "No internet."
     exit 1
 fi
 info "Internet connected"
@@ -24,26 +22,35 @@ echo ""
 warn "Starting monthly update — $(date '+%Y-%m-%d')"
 echo ""
 
-# System update
+# System
 sudo dnf upgrade -y --refresh
 info "System packages updated"
 
-# Rebuild NVIDIA module if kernel was updated
+# NVIDIA kernel module rebuild (in case kernel updated)
 sudo akmods --force
 sudo dracut --force
 info "NVIDIA kernel module rebuilt"
 
-# Update Ollama
+# Ollama
 curl -fsSL https://ollama.ai/install.sh | sh
 info "Ollama updated"
 
-# Show summary
+# Update this repo
+cd "$(dirname "$0")"
+if git rev-parse --is-inside-work-tree &>/dev/null; then
+    git pull
+    info "gpu-server-setup repo updated"
+fi
+
+# Summary
 echo ""
 echo -e "${GREEN}════════════════════════════════${NC}"
 echo -e "${GREEN} Update complete — $(date '+%Y-%m-%d')${NC}"
 echo -e "${GREEN}════════════════════════════════${NC}"
 echo ""
-echo "Models installed:"
+nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
+echo ""
+echo "Models:"
 ollama list
 echo ""
 
